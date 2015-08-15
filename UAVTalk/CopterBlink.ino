@@ -23,7 +23,7 @@ const uint32_t WHITE = ring.Color(255,255,255);
 const uint32_t BLACK = ring.Color(0,0,0);
 
 void setup() {
-//  Serial.begin(57600);
+  Serial.begin(57600);
   ring.begin();
   ring.show(); // Initialize all pixels to 'off'
   ring.setBrightness(100);
@@ -31,7 +31,7 @@ void setup() {
 }
 
 void loop() {
-  // int returncode = uavtalk_read();
+   int returncode = uavtalk_read();
 
    // armed
    if (osd_armed > 0) { // does only work sometimes!
