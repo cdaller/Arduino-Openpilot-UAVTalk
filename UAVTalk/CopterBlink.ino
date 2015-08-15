@@ -11,6 +11,7 @@ const uint32_t GREEN = ring.Color(0, 255, 0);
 const uint32_t BLUE = ring.Color(0, 0, 255);
 const uint32_t MAGENTA = ring.Color(255, 0, 255);
 const uint32_t YELLOW = ring.Color(255, 255, 0);
+const uint32_t DARK_YELLOW = ring.Color(155, 155, 0);
 const uint32_t PINK = ring.Color(219,112,147);
 const uint32_t SKY_BLUE = ring.Color(135,206,255);
 const uint32_t MAIZE = ring.Color(128,158,10);
@@ -34,14 +35,18 @@ void loop() {
    int returncode = uavtalk_read();
 
    // armed
-   if (osd_armed > 0) { // does only work sometimes!
-     ring.setPixelColor(0, RED); // armed = red
+   if (osd_armed == 1) { // seems, that messages are sent only once on state-change "event"
+                         // and that these onetime-messages get lost sometimes (same behavior seen at flight mode "osd_mode")
+                         // Flight Telemetry Update Period can be set in GCS (Default for armend: 5000ms)
+     ring.setPixelColor(0, DARK_YELLOW); // arming = DARK_YELLOW
+   } else if (osd_armed == 2) {
+     ring.setPixelColor(0, RED); // armed = RED
    } else {
      ring.setPixelColor(0, BLACK);
    }
 
    // yaw
-   uint32_t value = (osd_yaw + 180) * 255 / 360; // 0 - 255
+   uint32_t value = (osd_yaw + 180) * 25 / 36; // 0 - 255
    if (value > 255) {
      value = 255;
    }
