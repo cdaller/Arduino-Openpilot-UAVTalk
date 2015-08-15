@@ -1,7 +1,4 @@
-#include <Arduino.h>
-
 #include "UAVTalk.h"
-
 #include <Adafruit_NeoPixel.h>
 
 #define PIN 4
@@ -26,15 +23,15 @@ const uint32_t WHITE = ring.Color(255,255,255);
 const uint32_t BLACK = ring.Color(0,0,0);
 
 void setup() {
-  Serial.begin(57600);
+//  Serial.begin(57600);
   ring.begin();
   ring.show(); // Initialize all pixels to 'off'
   ring.setBrightness(100);
-  ring.setPixelColor(15,0x202020);
+  ring.setPixelColor(15,0x202020); // checkpixel
 }
 
 void loop() {
-   int returncode = uavtalk_read();
+  // int returncode = uavtalk_read();
 
    // armed
    if (osd_armed > 0) { // does only work sometimes!
@@ -44,7 +41,7 @@ void loop() {
    }
 
    // yaw
-   uint32_t value = (osd_yaw + 180) * 25 / 36; // 0 - 250
+   uint32_t value = (osd_yaw + 180) * 255 / 360; // 0 - 255
    if (value > 255) {
      value = 255;
    }
@@ -53,7 +50,7 @@ void loop() {
    
    // throttle (0-100)
    value = osd_throttle;
-   value = value * 2.5;
+   value = value * 2.55;
    color = value << 16; // red
    ring.setPixelColor(2, color);
 

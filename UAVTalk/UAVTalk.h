@@ -31,7 +31,7 @@
 
 
 #include "OSD_Config.h"
-#include "Arduino.h"
+#include <Arduino.h>
 
 
 // TODO enhancement:
