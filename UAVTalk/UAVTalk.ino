@@ -72,69 +72,6 @@ static const uint8_t crc_table[256] = {
 };
 
 
-#ifdef DEBUG
-void uavtalk_show_msg(uint8_t y, uavtalk_message_t *msg) {
-	uint8_t *d;
-	uint8_t i;
-	uint8_t c;
-	uint8_t crc;
-
-	osd.setPanel(1, y);
-	osd.openPanel();
-	
-	osd.printf("%6u header ", millis());
-	c = (uint8_t) (msg->Sync);
-	osd.printf("%2x ", c);
-	crc = crc_table[0 ^ c];
-	c = (uint8_t) (msg->MsgType);
-	osd.printf("%2x ", c);
-	crc = crc_table[crc ^ c];
-	c = (uint8_t) (msg->Length & 0xff);
-	osd.printf("%2x ", c);
-	crc = crc_table[crc ^ c];
-	c = (uint8_t) ((msg->Length >> 8) & 0xff);
-	osd.printf("%2x ", c);
-	crc = crc_table[crc ^ c];
-	c = (uint8_t) (msg->ObjID & 0xff);
-	osd.printf("%2x ", c);
-	crc = crc_table[crc ^ c];
-	c = (uint8_t) ((msg->ObjID >> 8) & 0xff);
-	osd.printf("%2x ", c);
-	crc = crc_table[crc ^ c];
-	c = (uint8_t) ((msg->ObjID >> 16) & 0xff);
-	osd.printf("%2x ", c);
-	crc = crc_table[crc ^ c];
-	c = (uint8_t) ((msg->ObjID >> 24) & 0xff);
-	osd.printf("%2x ", c);
-	crc = crc_table[crc ^ c];
-
-#if defined VERSION_RELEASE_12_10_1 || defined VERSION_RELEASE_12_10_2 || defined VERSION_RELEASE_13_06_1 || defined VERSION_RELEASE_13_06_2
-#else
-	c = (uint8_t) (msg->InstID & 0xff);
-	osd.printf("%2x ", c);
-	crc = crc_table[crc ^ c];
-	c = (uint8_t) ((msg->InstID >> 8) & 0xff);
-	osd.printf("%2x ", c);
-	crc = crc_table[crc ^ c];
-#endif
-	
-	osd.printf("data ");
-	if (msg->Length > HEADER_LEN) {
-	  d = msg->Data;
-	  for (i=0; i<msg->Length-HEADER_LEN; i++) {
-		c = *d++;
-	        osd.printf("%2x ", c);
-		crc = crc_table[crc ^ c];
-          }
-	}
-	
-	osd.printf("crc ");
-	osd.printf("%2x(%2x)", msg->Crc, crc);
-
-	osd.closePanel();
-}
-#endif
-
 
 static inline int8_t uavtalk_get_int8(uavtalk_message_t *msg, int pos) {
 	return msg->Data[pos];
@@ -229,7 +166,6 @@ void uavtalk_respond_object(uavtalk_message_t *msg_to_respond, uint8_t type) {
 }
 
 
-#if 0 // currently unused
 void uavtalk_request_object(uint8_t id) {
 	uavtalk_message_t msg;
 	
@@ -240,7 +176,6 @@ void uavtalk_request_object(uint8_t id) {
 	
 	uavtalk_send_msg(&msg);
 }
-#endif
 
 
 void uavtalk_send_gcstelemetrystats(void) {
@@ -384,40 +319,20 @@ uint8_t uavtalk_parse_char(uint8_t c, uavtalk_message_t *msg) {
 }
 
 
-int uavtalk_read(void) {
+int uavtalk_read(uavtalk_message_t *msg) {
 	static uint8_t crlf_count = 0;
-	static uavtalk_message_t msg;
 	uint8_t show_prio_info = 0;
 	
-	// grabbing data
-	while (!show_prio_info && Serial.available() > 0) {
-		uint8_t c = Serial.read();
-		
-//		// needed for MinimOSD upload, while no UAVTalk is established
-//		if (gcstelemetrystatus == TELEMETRYSTATS_STATE_DISCONNECTED && millis() < 20000 && millis() > 5000) {
-//			if (c == '\n' || c == '\r') {
-//				crlf_count++;
-//			} else {
-//				crlf_count = 0;
-//			}
-//			if (crlf_count == 3) {
-//				//uploadFont();
-//			}
-//		}
-		
-		// parse data to msg
-		if (uavtalk_parse_char(c, &msg)) {
 			// consume msg
-			switch (msg.ObjID) {
+			switch (msg->ObjID) {
 				case FLIGHTTELEMETRYSTATS_OBJID:
 #ifdef VERSION_ADDITIONAL_UAVOBJID
 				case FLIGHTTELEMETRYSTATS_OBJID_001:
 #endif
-					switch (msg.Data[flighttelemetrystats_obj_status]) {
+					switch (msg->Data[flighttelemetrystats_obj_status]) {
 						case TELEMETRYSTATS_STATE_DISCONNECTED:
 							gcstelemetrystatus = TELEMETRYSTATS_STATE_HANDSHAKEREQ;
 							uavtalk_send_gcstelemetrystats();
-
 						break;
 						case TELEMETRYSTATS_STATE_HANDSHAKEACK:
 							gcstelemetrystatus = TELEMETRYSTATS_STATE_CONNECTED;
@@ -433,9 +348,9 @@ int uavtalk_read(void) {
 				case ATTITUDESTATE_OBJID:
 					last_flighttelemetry_connect = millis();
 					show_prio_info = 1;
-        				osd_roll		= (int16_t) uavtalk_get_float(&msg, ATTITUDEACTUAL_OBJ_ROLL);
-        				osd_pitch		= (int16_t) uavtalk_get_float(&msg, ATTITUDEACTUAL_OBJ_PITCH);
-        				osd_yaw			= (int16_t) uavtalk_get_float(&msg, ATTITUDEACTUAL_OBJ_YAW);
+        				osd_roll		= (int16_t) uavtalk_get_float(msg, ATTITUDEACTUAL_OBJ_ROLL);
+        				osd_pitch		= (int16_t) uavtalk_get_float(msg, ATTITUDEACTUAL_OBJ_PITCH);
+        				osd_yaw			= (int16_t) uavtalk_get_float(msg, ATTITUDEACTUAL_OBJ_YAW);
                                         // if we don't have a GPS, use Yaw for heading
                                         if (osd_lat == 0) {
                                             osd_heading = osd_yaw;
@@ -449,15 +364,15 @@ int uavtalk_read(void) {
 				case FLIGHTSTATUS_OBJID_004:
 				case FLIGHTSTATUS_OBJID_005:
 #endif
-        				osd_armed		= uavtalk_get_int8(&msg, FLIGHTSTATUS_OBJ_ARMED);
-        				osd_mode		= uavtalk_get_int8(&msg, FLIGHTSTATUS_OBJ_FLIGHTMODE);
+        				osd_armed		= uavtalk_get_int8(msg, FLIGHTSTATUS_OBJ_ARMED);
+        				osd_mode		= uavtalk_get_int8(msg, FLIGHTSTATUS_OBJ_FLIGHTMODE);
 				break;
 				case MANUALCONTROLCOMMAND_OBJID:
 #ifdef VERSION_ADDITIONAL_UAVOBJID
 				case MANUALCONTROLCOMMAND_OBJID_001:
 				case MANUALCONTROLCOMMAND_OBJID_002:
 #endif
-					osd_throttle		= (int16_t) (100.0 * uavtalk_get_float(&msg, MANUALCONTROLCOMMAND_OBJ_THROTTLE));
+					osd_throttle		= (int16_t) (100.0 * uavtalk_get_float(msg, MANUALCONTROLCOMMAND_OBJ_THROTTLE));
 					if (osd_throttle < 0 || osd_throttle > 200) osd_throttle = 0;
 					// Channel mapping:
 					// 0   is Throttle
@@ -469,58 +384,58 @@ int uavtalk_read(void) {
                                         // In OPOSD:
                                         // chanx_raw     used for menu navigation (Roll/pitch)
                                         // osd_chanx_raw used for panel navigation (Accessory)
-                                        chan1_raw		= uavtalk_get_int16(&msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_1);
-					chan2_raw		= uavtalk_get_int16(&msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_2);
-					osd_chan5_raw		= uavtalk_get_int16(&msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_4);
-					osd_chan6_raw		= uavtalk_get_int16(&msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_6);
-					osd_chan7_raw		= uavtalk_get_int16(&msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_7);
-					osd_chan8_raw		= uavtalk_get_int16(&msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_8);
+          chan1_raw		= uavtalk_get_int16(msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_1);
+					chan2_raw		= uavtalk_get_int16(msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_2);
+					osd_chan5_raw		= uavtalk_get_int16(msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_4);
+					osd_chan6_raw		= uavtalk_get_int16(msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_6);
+					osd_chan7_raw		= uavtalk_get_int16(msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_7);
+					osd_chan8_raw		= uavtalk_get_int16(msg, MANUALCONTROLCOMMAND_OBJ_CHANNEL_8);
 				break;
 #ifndef GPS_SIMULATION
 				case GPSPOSITION_OBJID:
 				case GPSPOSITIONSENSOR_OBJID:
 				case GPSPOSITIONSENSOR_OBJID_001:
-					osd_lat			= uavtalk_get_int32(&msg, GPSPOSITION_OBJ_LAT) / 10000000.0;
-					osd_lon			= uavtalk_get_int32(&msg, GPSPOSITION_OBJ_LON) / 10000000.0;
-					osd_satellites_visible	= uavtalk_get_int8(&msg, GPSPOSITION_OBJ_SATELLITES);
-					osd_fix_type		= uavtalk_get_int8(&msg, GPSPOSITION_OBJ_STATUS);
-					osd_heading		= uavtalk_get_float(&msg, GPSPOSITION_OBJ_HEADING);
-					osd_alt			= uavtalk_get_float(&msg, GPSPOSITION_OBJ_ALTITUDE);
-					osd_groundspeed		= uavtalk_get_float(&msg, GPSPOSITION_OBJ_GROUNDSPEED);
+					osd_lat			= uavtalk_get_int32(msg, GPSPOSITION_OBJ_LAT) / 10000000.0;
+					osd_lon			= uavtalk_get_int32(msg, GPSPOSITION_OBJ_LON) / 10000000.0;
+					osd_satellites_visible	= uavtalk_get_int8(msg, GPSPOSITION_OBJ_SATELLITES);
+					osd_fix_type		= uavtalk_get_int8(msg, GPSPOSITION_OBJ_STATUS);
+					osd_heading		= uavtalk_get_float(msg, GPSPOSITION_OBJ_HEADING);
+					osd_alt			= uavtalk_get_float(msg, GPSPOSITION_OBJ_ALTITUDE);
+					osd_groundspeed		= uavtalk_get_float(msg, GPSPOSITION_OBJ_GROUNDSPEED);
 				break;
 #endif
 // because of #define PIOS_GPS_MINIMAL in the OP flight code, the following is unfortunately currently not supported:
 #if 0
 				case GPSTIME_OBJID:
-        				osd_time_hour		= uavtalk_get_int8(&msg, GPSTIME_OBJ_HOUR);
-        				osd_time_minute		= uavtalk_get_int8(&msg, GPSTIME_OBJ_MINUTE);
+        				osd_time_hour		= uavtalk_get_int8(msg, GPSTIME_OBJ_HOUR);
+        				osd_time_minute		= uavtalk_get_int8(msg, GPSTIME_OBJ_MINUTE);
 				break;
 #endif
 				case GPSVELOCITY_OBJID:
 				case GPSVELOCITYSENSOR_OBJID:
-					osd_climb		= -1.0 * uavtalk_get_float(&msg, GPSVELOCITY_OBJ_DOWN);
+					osd_climb		= -1.0 * uavtalk_get_float(msg, GPSVELOCITY_OBJ_DOWN);
 				break;
 #ifdef FLIGHT_BATT_ON_REVO
 				case FLIGHTBATTERYSTATE_OBJID:
 				case FLIGHTBATTERYSTATE_OBJID_001:
-        				osd_vbat_A		= uavtalk_get_float(&msg, FLIGHTBATTERYSTATE_OBJ_VOLTAGE);
-					osd_curr_A		= (int16_t) (100.0 * uavtalk_get_float(&msg, FLIGHTBATTERYSTATE_OBJ_CURRENT));
-					osd_total_A		= (int16_t) uavtalk_get_float(&msg, FLIGHTBATTERYSTATE_OBJ_CONSUMED_ENERGY);
-					osd_est_flight_time	= (int16_t) uavtalk_get_float(&msg, FLIGHTBATTERYSTATE_OBJ_ESTIMATED_FLIGHT_TIME);
+        				osd_vbat_A		= uavtalk_get_float(msg, FLIGHTBATTERYSTATE_OBJ_VOLTAGE);
+					osd_curr_A		= (int16_t) (100.0 * uavtalk_get_float(msg, FLIGHTBATTERYSTATE_OBJ_CURRENT));
+					osd_total_A		= (int16_t) uavtalk_get_float(msg, FLIGHTBATTERYSTATE_OBJ_CONSUMED_ENERGY);
+					osd_est_flight_time	= (int16_t) uavtalk_get_float(msg, FLIGHTBATTERYSTATE_OBJ_ESTIMATED_FLIGHT_TIME);
 				break;
 #endif
 #ifdef REVO_ADD_ONS
 				case BAROALTITUDE_OBJID:
 				case BAROSENSOR_OBJID:
-					revo_baro_alt		= (int16_t) uavtalk_get_float(&msg, BAROALTITUDE_OBJ_ALTITUDE);
+					revo_baro_alt		= (int16_t) uavtalk_get_float(msg, BAROALTITUDE_OBJ_ALTITUDE);
 				break;
 				case OPLINKSTATUS_OBJID:
 #ifdef VERSION_ADDITIONAL_UAVOBJID
 				case OPLINKSTATUS_OBJID_001:
 				case OPLINKSTATUS_OBJID_002:
 #endif
-        				oplm_rssi		= uavtalk_get_int8(&msg, OPLINKSTATUS_OBJ_RSSI);
-        				oplm_linkquality	= uavtalk_get_int8(&msg, OPLINKSTATUS_OBJ_LINKQUALITY);
+        				oplm_rssi		= uavtalk_get_int8(msg, OPLINKSTATUS_OBJ_RSSI);
+        				oplm_linkquality	= uavtalk_get_int8(msg, OPLINKSTATUS_OBJ_LINKQUALITY);
 				break;
 #endif
 #ifdef OP_DEBUG
@@ -532,9 +447,9 @@ int uavtalk_read(void) {
 				case SYSTEMALARMS_OBJID_004:
 				case SYSTEMALARMS_OBJID_005:
 #endif
-					op_alarm  = msg.Data[SYSTEMALARMS_ALARM_CPUOVERLOAD];
-//					op_alarm += msg.Data[SYSTEMALARMS_ALARM_EVENTSYSTEM] * 0x10;
-					op_alarm += msg.Data[SYSTEMALARMS_ALARM_MANUALCONTROL] * 0x10;
+					op_alarm  = msg->Data[SYSTEMALARMS_ALARM_CPUOVERLOAD];
+//					op_alarm += msg->Data[SYSTEMALARMS_ALARM_EVENTSYSTEM] * 0x10;
+					op_alarm += msg->Data[SYSTEMALARMS_ALARM_MANUALCONTROL] * 0x10;
 					if (op_alarm > 0x11) show_prio_info = 1;
 				break;
 #endif
@@ -544,14 +459,10 @@ int uavtalk_read(void) {
 				// osd_airspeed = 0;               // air speed (only with pitot tube)
 				// etc.
 			}
-			if (msg.MsgType == UAVTALK_TYPE_OBJ_ACK) {
-				uavtalk_respond_object(&msg, UAVTALK_TYPE_ACK);
+			if (msg->MsgType == UAVTALK_TYPE_OBJ_ACK) {
+				uavtalk_respond_object(msg, UAVTALK_TYPE_ACK);
 			}
-		}
 
-		delayMicroseconds(190);  // wait at least 1 byte
-	}
-	
 	// check connect timeout
 	if (last_flighttelemetry_connect + FLIGHTTELEMETRYSTATS_CONNECT_TIMEOUT < millis()) {
 		gcstelemetrystatus = TELEMETRYSTATS_STATE_DISCONNECTED;
@@ -563,7 +474,7 @@ int uavtalk_read(void) {
 		uavtalk_send_gcstelemetrystats();
 	}
 
-        return show_prio_info;
+  return show_prio_info;
 }
 
 
